@@ -1,0 +1,138 @@
+module "/pliant/language/compiler.pli"
+
+constant open "{{"
+constant close "}}"
+
+function find_next pattern offset str not_found -> pos
+  arg Str pattern str ; arg Int offset pos not_found
+  var Int p_len := pattern:len
+  var Int i := offset
+  pos := not_found
+  while i < str:len
+    var Int j := 0
+    while j < p_len and pattern:j = str:(i+j)
+      j += 1
+    if j = p_len
+      pos := i
+      return
+    else
+      i += 1
+
+function template_example str
+  arg Str str
+  var Int prev := 0
+  var Int i := 0
+  var Int j := 0
+  var Int open_len := open:len
+  var Int close_len := close:len
+  var Int str_len := str:len
+  var Int loop_count := 10
+  while j < str_len and loop_count > 0
+    loop_count -= 1
+    var Int j := find_next open i str str:len
+    if j < str_len
+      i := find_next close j str str:len
+      j += open_len
+      var Str name := str j i-j
+      i += close_len
+
+      if name="b"
+        console "hello"
+      eif name="d"
+        console "world"
+
+function print_next_chunk str offset placeholder -> more
+  arg Str str ; arg_rw Int offset; arg_w Str placeholder ; arg CBool more
+  #console "in print_next_chunk: " str offset eol
+  var Int prev := 0
+  var Int i := offset 
+  var Int j := 0
+  var Int str_len := str:len
+  placeholder := ""
+  var Int j := find_next open i str str_len
+  console (str i j-i)
+  if j < str_len
+    i := find_next close j str str_len
+    j += open:len
+    placeholder := str j i-j
+    i += close:len
+    offset := i
+    return i < str_len
+  else
+    offset := j
+    return j < str_len
+
+function template_example2 str
+  arg Str str
+  var Int i := 0
+  while (print_next_chunk str i (var Str name))
+    if name="b"
+      console "hello"
+    eif name="d"
+      console "world"
+  
+function template_example3 str
+  arg Str str
+  var Int offset := 0
+  part loop
+    var CBool more := print_next_chunk str offset (var Str placeholder)
+    if placeholder="b"
+      console "hello"
+    eif placeholder="d"
+      console "world"
+    if more
+      restart loop
+
+function make_zero num
+  arg_w Int num
+  num := 0
+
+function match_placeholder block_name placeholder_name -> matched
+  arg Str block_name placeholder_name
+  arg CBool matched
+  #console "Got block_name " block_name " placeholder_name " placeholder_name eol
+  matched := block_name = placeholder_name
+
+meta template e
+  if e:size<1
+    return
+  if not (e:0 cast Str)
+    return
+  e suckup e:0 
+  var Link:Argument str :> e:0:result
+  var Link:Argument offset :> argument local Int
+  var Link:Argument name :> argument local Str
+  var Link:Argument more :> argument local CBool
+  var Link:Instruction loop_start :> instruction the_function:'do nothing'
+  e add (instruction (the_function make_zero Int) offset)
+  e add loop_start
+  e add (instruction (the_function print_next_chunk Str Int Str -> CBool) str offset name more)
+  var Link:Argument matched :> argument local CBool
+  var Link:Expression blocks :> e:1
+  for (var Int i) 0 blocks:size-1
+    var Link:Expression block :> blocks:i
+    if block:size > 1 and (block:0 cast Str)
+      block:0 compile ?
+      e suckup block:0
+      var Link:Argument block_name :> block:0:result
+      var Link:Instruction skip :> instruction the_function:'do nothing'
+      e add (instruction (the_function match_placeholder Str Str -> CBool) block_name name matched)
+      e add (instruction (the_function 'jump if not' CBool) matched jump skip)
+      block:1:compile ?
+      e suckup block:1
+      e add skip
+  e add (instruction (the_function 'jump if' CBool) more jump loop_start)
+  e set_void_result
+
+function test
+  var Str str := "a{{b}}c{{d}}![lf]"
+  template_example str
+  template_example2 str
+  template_example3 str
+  template str
+    block "b"
+      console "hello"
+    block "d"
+      console "world"
+
+test

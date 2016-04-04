@@ -1,0 +1,40 @@
+module "/pliant/language/compiler.pli"
+
+# this exact example is explained here http://www.fullpliant.org/page/pliant/H2A3BV4M/0EEMW25
+
+meta max e
+  if e:size<3 # P1
+    return
+  part find
+    for (var Int i) 0 e:size-1
+      e:i compile ?
+      var Pointer:Type t :> e:i:result:type real_data_type # P2
+      part try
+        for (var Int j) 0 e:size-1
+          if not (e:j cast t) # P3
+            leave try
+        # P4
+        var Pointer:Arrow c :> e:module first "compare"
+        while c<>null and { var Link:Function compare :> c map Function ; c=null or entry_type:c<>Function or compare:nb_args_with_result<>3 or (compare arg 0):type<>t or (compare arg 1):type<>t or (compare arg 2):type<>Int}
+          c :> e:module next "compare" c
+        if c<>null  
+          leave find
+    return
+  var Link:Argument adr :> argument local Address
+  var Link:Argument result :> argument indirect t adr 0 # P5
+  e suckup e:0 # P6
+  e add (instruction (the_function 'address Universal' Universal -> Address) e:0:result adr) # P7
+  var Link:Argument comp :> argument local Int
+  var Link:Argument mode :> argument constant Int compare_superior
+  var Link:Argument cond :> argument local CBool
+  for (var Int i) 1 e:size-1 # P8
+    e suckup e:i # P9
+    e add (instruction compare e:i:result result comp) # P10
+    e add (instruction (the_function 'compare apply mode' Int Int -> CBool) comp mode cond) # P11
+    var Link:Instruction skip :> instruction the_function:'do nothing'
+    e add (instruction (the_function 'jump if not' CBool) cond jump skip) # P12
+    e add (instruction (the_function 'address Universal' Universal -> Address) e:i:result adr) # P13
+    e add skip
+  e set_result result access_read # P14
+
+console (max 3 6.2 -8) eol
