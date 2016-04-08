@@ -30,16 +30,17 @@ function template_example str
   while j < str_len and loop_count > 0
     loop_count -= 1
     var Int j := find_next open i str str:len
+    console (str i j-i)
     if j < str_len
       i := find_next close j str str:len
       j += open_len
       var Str name := str j i-j
       i += close_len
 
-      if name="b"
-        console "hello"
-      eif name="d"
-        console "world"
+      if name="a"
+        console "cat"
+      eif name="b"
+        console "fridge"
 
 function print_next_chunk str offset placeholder -> more
   arg Str str ; arg_rw Int offset; arg_w Str placeholder ; arg CBool more
@@ -66,20 +67,20 @@ function template_example2 str
   arg Str str
   var Int i := 0
   while (print_next_chunk str i (var Str name))
-    if name="b"
-      console "hello"
-    eif name="d"
-      console "world"
+    if name="a"
+      console "cat"
+    eif name="b"
+      console "fridge"
   
 function template_example3 str
   arg Str str
   var Int offset := 0
   part loop
     var CBool more := print_next_chunk str offset (var Str placeholder)
-    if placeholder="b"
-      console "hello"
-    eif placeholder="d"
-      console "world"
+    if placeholder="a"
+      console "cat"
+    eif placeholder="b"
+      console "fridge"
     if more
       restart loop
 
@@ -90,7 +91,6 @@ function make_zero num
 function match_placeholder block_name placeholder_name -> matched
   arg Str block_name placeholder_name
   arg CBool matched
-  #console "Got block_name " block_name " placeholder_name " placeholder_name eol
   matched := block_name = placeholder_name
 
 meta template e
@@ -118,21 +118,22 @@ meta template e
       var Link:Instruction skip :> instruction the_function:'do nothing'
       e add (instruction (the_function match_placeholder Str Str -> CBool) block_name name matched)
       e add (instruction (the_function 'jump if not' CBool) matched jump skip)
-      block:1:compile ?
+      block:1 compile ?
       e suckup block:1
+      e add (instruction (the_function 'jump if' CBool) more jump loop_start)
       e add skip
   e add (instruction (the_function 'jump if' CBool) more jump loop_start)
   e set_void_result
 
 function test
-  var Str str := "a{{b}}c{{d}}![lf]"
+  var Str str := "A {{a}} jumped on a {{b}}! [lf]"
   template_example str
   template_example2 str
   template_example3 str
   template str
+    block "a"
+      console "cat"
     block "b"
-      console "hello"
-    block "d"
-      console "world"
+      console "fridge"
 
 test
